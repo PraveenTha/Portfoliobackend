@@ -74,7 +74,7 @@ router.post("/", (req, res) => {
 });
 
 /* =========================
-   UPDATE PROJECT
+   UPDATE PROJECT (🔥 FIXED)
 ========================= */
 router.put("/:id", (req, res) => {
   upload.single("projectImage")(req, res, async function (err) {
@@ -90,37 +90,41 @@ router.put("/:id", (req, res) => {
         return res.status(404).json({ message: "Not found" });
       }
 
-      const {
-        title,
-        shortDescription,
-        description,
-        tags,
-        category,
-        projectLink,
-        isActive,
-      } = req.body;
+      // ✅ SAFE BODY READ
+      const title = req.body.title;
+      const shortDescription = req.body.shortDescription;
+      const description = req.body.description;
+      const category = req.body.category;
+      const projectLink = req.body.projectLink;
+      const isActive = req.body.isActive;
 
       let parsedTags = [];
-      if (tags) {
+      if (req.body.tags) {
         try {
-          parsedTags = JSON.parse(tags);
+          parsedTags = JSON.parse(req.body.tags);
         } catch {
           parsedTags = [];
         }
       }
 
-      project.title = title;
-      project.shortDescription = shortDescription;
-      project.description = description;
-      project.tags = parsedTags;
-      project.category = category;
-      project.projectLink = projectLink;
+      // ✅ SAFE UPDATE (NO CRASH)
+      if (title) project.title = title;
+      if (shortDescription) project.shortDescription = shortDescription;
+      if (description) project.description = description;
+      if (category) project.category = category;
+      if (projectLink) project.projectLink = projectLink;
+      if (parsedTags.length) project.tags = parsedTags;
+
       project.isActive = isActive === "false" ? false : true;
 
-      // If new image uploaded
+      // ✅ IMAGE UPDATE (SAFE)
       if (req.file) {
         if (project.imagePublicId) {
-          await cloudinary.uploader.destroy(project.imagePublicId);
+          try {
+            await cloudinary.uploader.destroy(project.imagePublicId);
+          } catch (err) {
+            console.log("Cloudinary delete failed (ignore)");
+          }
         }
 
         project.image = req.file.path;
@@ -131,7 +135,7 @@ router.put("/:id", (req, res) => {
       res.json(project);
 
     } catch (error) {
-      console.error("Update Error:", error);
+      console.error("🔥 UPDATE ERROR:", error);
       res.status(500).json({ message: "Project update failed" });
     }
   });
@@ -146,7 +150,11 @@ router.delete("/:id", async (req, res) => {
     if (!project) return res.status(404).json({ message: "Not found" });
 
     if (project.imagePublicId) {
-      await cloudinary.uploader.destroy(project.imagePublicId);
+      try {
+        await cloudinary.uploader.destroy(project.imagePublicId);
+      } catch (err) {
+        console.log("Cloudinary delete failed (ignore)");
+      }
     }
 
     await project.deleteOne();
