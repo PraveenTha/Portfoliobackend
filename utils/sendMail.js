@@ -1,36 +1,68 @@
+
+
+const nodemailer = require("nodemailer");
 const { Resend } = require("resend");
 
+const isProduction = process.env.NODE_ENV === "production";
+
 /* =========================
-   RESEND INIT
+   RESEND (Production)
 ========================= */
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend = null;
+
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+}
+
+/* =========================
+   NODEMAILER (SMTP)
+========================= */
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
+  secure: process.env.SMTP_PORT == 465, // true only for 465
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 /* =========================
    SEND MAIL FUNCTION
 ========================= */
 const sendMail = async ({ subject, html }) => {
   try {
-    // 🔍 Debug log
-    console.log("📤 Sending mail via Resend...");
+    /* ===== PRODUCTION → RESEND ===== */
+    if (isProduction && resend) {
+      console.log("📤 Sending mail via Resend...");
 
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error("RESEND_API_KEY is missing in environment variables");
+      await resend.emails.send({
+        from: "onboarding@resend.dev", // change after domain verify
+        to: process.env.SMTP_USER,
+        subject,
+        html,
+      });
+
+      console.log("✅ Email sent via Resend");
+      return;
     }
 
-    const response = await resend.emails.send({
-      from: "onboarding@resend.dev", // later domain verify kar lena
-      to: "praveentha8@gmail.com", // 👈 yaha apna email daal (safe)
+    /* ===== LOCAL → SMTP ===== */
+    console.log("📤 Sending mail via SMTP...");
+
+    await transporter.sendMail({
+      from: `"Portfolio Contact" <${process.env.SMTP_USER}>`,
+      to: process.env.SMTP_USER,
       subject,
       html,
     });
 
-    console.log("✅ Email sent successfully:", response);
-    return response;
-
+    console.log("✅ Email sent via SMTP");
   } catch (err) {
-    console.error("🔥 Mail send failed:", err);
+    console.error("🔥 Mail send failed:", err.message);
     throw err;
   }
 };
 
 module.exports = sendMail;
+
