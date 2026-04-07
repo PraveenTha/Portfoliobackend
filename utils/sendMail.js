@@ -1,63 +1,34 @@
-const nodemailer = require("nodemailer");
 const { Resend } = require("resend");
 
-const isProduction = process.env.NODE_ENV === "production";
-
 /* =========================
-   RESEND (Production)
+   RESEND INIT
 ========================= */
-let resend = null;
-
-if (process.env.RESEND_API_KEY) {
-  resend = new Resend(process.env.RESEND_API_KEY);
-}
-
-/* =========================
-   NODEMAILER (SMTP)
-========================= */
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  secure: process.env.SMTP_PORT == 465, // true only for 465
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /* =========================
    SEND MAIL FUNCTION
 ========================= */
 const sendMail = async ({ subject, html }) => {
   try {
-    /* ===== PRODUCTION → RESEND ===== */
-    if (isProduction && resend) {
-      console.log("📤 Sending mail via Resend...");
+    // 🔍 Debug log
+    console.log("📤 Sending mail via Resend...");
 
-      await resend.emails.send({
-        from: "onboarding@resend.dev", // change after domain verify
-        to: process.env.SMTP_USER,
-        subject,
-        html,
-      });
-
-      console.log("✅ Email sent via Resend");
-      return;
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error("RESEND_API_KEY is missing in environment variables");
     }
 
-    /* ===== LOCAL → SMTP ===== */
-    console.log("📤 Sending mail via SMTP...");
-
-    await transporter.sendMail({
-      from: `"Portfolio Contact" <${process.env.SMTP_USER}>`,
-      to: process.env.SMTP_USER,
+    const response = await resend.emails.send({
+      from: "onboarding@resend.dev", // later domain verify kar lena
+      to: "praveentha8@gmail.com", // 👈 yaha apna email daal (safe)
       subject,
       html,
     });
 
-    console.log("✅ Email sent via SMTP");
+    console.log("✅ Email sent successfully:", response);
+    return response;
+
   } catch (err) {
-    console.error("🔥 Mail send failed:", err.message);
+    console.error("🔥 Mail send failed:", err);
     throw err;
   }
 };
